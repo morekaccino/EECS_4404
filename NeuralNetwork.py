@@ -10,14 +10,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.datasets import load_iris
+from copy import deepcopy
 
 
 def fit_NeuralNetwork(X_train, y_train, alpha, hidden_layer_sizes, epochs):
-    pass
+    layer_units = ([len(X_train[-1])] + hidden_layer_sizes + [len(y_train[-1])])
+    W = [np.empty((n_fan_in_ + 1, n_fan_out_)) for n_fan_in_,
+                                                   n_fan_out_ in zip(layer_units[:-1],
+                                                                     layer_units[1:])]
 
-
-def errorPerSample(X, y_n):
-    pass
 
 
 def forwardPropagation(x, weights):
@@ -43,7 +44,7 @@ def forwardPropagation(x, weights):
 
 
 def backPropagation(X, y_n, s, weights):
-    weights_copy = weights
+    weights_copy = deepcopy(weights)
     g = [None] * len(X)
     X = np.array(X)
     for layer, Xl in enumerate(reversed(X)):
@@ -70,7 +71,11 @@ def backPropagation(X, y_n, s, weights):
 
 
 def updateWeights(weights, g, alpha):
-    pass
+    nW = deepcopy(weights)
+    for i in range(len(nW)):
+        for j in range(len(nW[i])):
+            nW[i][j] = nW[i][j] - (alpha * g[i][j])
+    return nW
 
 
 def activation(s):
@@ -94,6 +99,10 @@ def errorf(x_L, y):
         return np.log(x_L)
     else:
         return -np.log(1 - x_L)
+
+
+def errorPerSample(X, yn):
+    return errorf(X[-1][-1], yn)
 
 
 def derivativeError(x_L, y):
