@@ -43,23 +43,30 @@ def forwardPropagation(x, weights):
 
 
 def backPropagation(X, y_n, s, weights):
-    delta = 0
-    g = []
-    W = np.array(weights)
+    weights_copy = weights
+    g = [None] * len(X)
     X = np.array(X)
     for layer, Xl in enumerate(reversed(X)):
-        if layer == 0:
+        layer = len(X) - layer - 1
+        if layer == len(X) - 1:
             delta = 2 * (Xl[0] - y_n) * derivativeActivation(s[-1][0])
-            g.append(np.array(delta))
-        elif layer != len(X):
-            Wl = np.array(weights[len(X) - layer - 1])
-            np.identity()
-            a = (g[layer - 1].dot(Wl.T)).T
-            g.append(a)
-            print('gl-1', g[layer - 1])
-            print('WlT', Wl.T)
-            print(g[layer].shape, Wl.T.shape, '\n')
-    return g
+            g[layer] = np.array([delta])
+        elif layer > 0:
+            derivatives = np.zeros([len(Xl) - 1, len(Xl) - 1])
+            for i in range(len(Xl) - 1):
+                derivatives[i][i] = derivativeActivation(Xl[i + 1])
+
+            Wl = weights_copy[layer]
+            Wl_t = np.array(Wl)
+            g[layer] = ((Wl_t).dot((g[layer + 1]).T)[1:]).T.dot(derivatives)
+
+    g = g[1:]
+
+    updatedW = weights_copy
+    for layer, Xl in enumerate(X[:-1]):
+        updatedW[layer] = np.dot(np.array([Xl]).T, np.array([g[layer]]))
+
+    return (updatedW)
 
 
 def updateWeights(weights, g, alpha):
