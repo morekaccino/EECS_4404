@@ -10,15 +10,30 @@ from sklearn.model_selection import train_test_split
 from sklearn.neural_network import MLPClassifier
 from sklearn.metrics import confusion_matrix
 from sklearn.datasets import load_iris
-from copy import deepcopy
 
 
 def fit_NeuralNetwork(X_train, y_train, alpha, hidden_layer_sizes, epochs):
-    layer_units = ([len(X_train[-1])] + hidden_layer_sizes + [len(y_train[-1])])
-    W = [np.empty((n_fan_in_ + 1, n_fan_out_)) for n_fan_in_,
-                                                   n_fan_out_ in zip(layer_units[:-1],
-                                                                     layer_units[1:])]
-
+    layer_units = ([len(X_train[-1])] + hidden_layer_sizes + [1])
+    W = [np.random.rand(n_fan_in_ + 1, n_fan_out_) for n_fan_in_, n_fan_out_ in
+         zip(layer_units[:-1], layer_units[1:])]
+    # W = np.true_divide(W, 10)
+    X_train = np.insert(X_train, 0, 1, axis=1)
+    error_list = []
+    error_dic = {}
+    all_W = []
+    for _ in range(epochs):
+        error_over_epoch = 0
+        np.random.shuffle(X_train)
+        for N, x_n in enumerate(X_train):
+            X_n, S_n = forwardPropagation(x_n, W)
+            g_n = backPropagation(X_n, y_train[N], S_n, W)
+            W = updateWeights(W, g_n, alpha)
+            all_W.append(W)
+            error_over_epoch += 1 if pred(x_n, W) != y_train[N] else 0
+        error_list.append(error_over_epoch / len(X_train))
+        error_dic[error_over_epoch] = W
+    print(error_list)
+    return error_list, W
 
 
 def forwardPropagation(x, weights):
@@ -43,6 +58,7 @@ def forwardPropagation(x, weights):
     return np.array(X), np.array(S)
 
 
+from copy import deepcopy
 def backPropagation(X, y_n, s, weights):
     weights_copy = deepcopy(weights)
     g = [None] * len(X)
@@ -50,7 +66,7 @@ def backPropagation(X, y_n, s, weights):
     for layer, Xl in enumerate(reversed(X)):
         layer = len(X) - layer - 1
         if layer == len(X) - 1:
-            delta = 2 * (Xl[0] - y_n) * derivativeActivation(s[-1][0])
+            delta = 2 * (Xl[0] - y_n) * derivativeOutput(s[-1][0])
             g[layer] = np.array([delta])
         elif layer > 0:
             derivatives = np.zeros([len(Xl) - 1, len(Xl) - 1])
@@ -58,32 +74,33 @@ def backPropagation(X, y_n, s, weights):
                 derivatives[i][i] = derivativeActivation(Xl[i + 1])
 
             Wl = weights_copy[layer]
+            # Wl = weights[layer]
             Wl_t = np.array(Wl)
-            g[layer] = ((Wl_t).dot((g[layer + 1]).T)[1:]).T.dot(derivatives)
+            g[layer] = np.dot(np.dot(Wl_t, (g[layer + 1]).T)[1:].T, derivatives)
+            # g[layer] = ((Wl_t).dot((g[layer + 1]).T)[1:]).T.dot(derivatives)
 
     g = g[1:]
 
-    updatedW = weights_copy
+    to_update_W = weights_copy
+    # updatedW = weights
     for layer, Xl in enumerate(X[:-1]):
-        updatedW[layer] = np.dot(np.array([Xl]).T, np.array([g[layer]]))
+        to_update_W[layer] = np.dot(np.array([Xl]).T, np.array([g[layer]]))
 
-    return (updatedW)
+    return (to_update_W)
 
 
 def updateWeights(weights, g, alpha):
-    nW = deepcopy(weights)
-    for i in range(len(nW)):
-        for j in range(len(nW[i])):
-            nW[i][j] = nW[i][j] - (alpha * g[i][j])
-    return nW
+    return np.subtract(np.array(weights), np.multiply(np.array(g), alpha))
 
 
 def activation(s):
     return 0 if s <= 0 else s
+    # return np.tanh(s)
 
 
 def derivativeActivation(s):
     return 0 if s <= 0 else 1
+    # return (1 - np.tanh(s) ** 2)
 
 
 def outputf(s):
@@ -91,7 +108,8 @@ def outputf(s):
 
 
 def derivativeOutput(s):
-    return (outputf(s)) * (1 - outputf(s))
+    # return (outputf(s)) * (1 - outputf(s))
+    return (np.exp(-s)) / ((1 + np.exp(-s)) ** 2)
 
 
 def errorf(x_L, y):
@@ -115,15 +133,44 @@ def derivativeError(x_L, y):
 
 
 def pred(x_n, weights):
-    pass
+    x, s = forwardPropagation(x_n, weights)
+    res = 1 if x[-1][-1] >= 0.5 else -1
+    return res
 
 
 def confMatrix(X_train, y_train, w):
-    pass
+    # Add implementation here
+
+    X_train = np.insert(X_train, 0, 1, axis=1)
+
+    y_pred = []
+    for x_n in X_train:
+        y_pred.append(pred(x_n, w))
+
+    # the confusion maxtrix that we will return
+    # matrix = [[0, 0], [0, 0]]
+    matrix = np.zeros((2, 2), np.int8)
+
+    # Populating our matrix using the prediction data
+    for index, y in enumerate(y_train):
+        if y == -1 and y_pred[index] == -1:
+            matrix[0][0] += 1
+        elif y == -1 and y_pred[index] == 1:
+            matrix[0][1] += 1
+        elif y == 1 and y_pred[index] == -1:
+            matrix[1][0] += 1
+        else:
+            matrix[1][1] += 1
+
+    # returning the result
+    return matrix
+    # return confusion_matrix(y_train, y_pred)
 
 
 def plotErr(e, epochs):
-    pass
+    x_axis = range(1, epochs + 1)
+    plt.plot(e)
+    plt.show()
 
 
 def test_SciKit(X_train, X_test, Y_train, Y_test):
@@ -149,16 +196,16 @@ def test():
         else:
             y_test[j] = 1
 
-    # err, w = fit_NeuralNetwork(X_train, y_train, 1e-2, [30, 10], 100)
+    err, w = fit_NeuralNetwork(X_train, y_train, 1e-1, [2], 10000)
 
     # plotErr(err, 100)
 
-    # cM = confMatrix(X_test, y_test, w)
+    cM = confMatrix(X_test, y_test, w)
 
-    sciKit = test_SciKit(X_train, X_test, y_train, y_test)
+    # sciKit = test_SciKit(X_train, X_test, y_train, y_test)
 
-    # print("Confusion Matrix is from Part 1a is: ", cM)
-    print("Confusion Matrix from Part 1b is:\n", sciKit)
+    print("Confusion Matrix is from Part 1a is:\n", cM)
+    # print("Confusion Matrix from Part 1b is:\n", sciKit)
 
 
 test()
